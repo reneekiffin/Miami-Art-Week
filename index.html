@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Miami Art Week 2026 | Events Guide and Map</title>
+<meta name="description" content="Every Miami Art Week 2026 art fair, exhibition, party, wellness event and dining experience in one searchable list with a Google map.">
+<meta property="og:title" content="Miami Art Week 2026 Events Guide">
+<meta property="og:description" content="Art fairs, free exhibits, parties and more. Search the list and see each one on the map.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="hero">
+  <p class="eyebrow">Nov 29 to Dec 6, 2026</p>
+  <h1>Miami Art <span>Week</span> 2026</h1>
+  <p class="lede">Art fairs, free exhibits, parties, wellness and dining, all in one place. Tap any event to see it on the map.</p>
+</header>
+
+<main class="layout">
+  <section class="list-col" aria-label="Events">
+    <div id="controls" class="controls" hidden>
+      <input id="q" type="search" placeholder="Search events, venues, neighborhoods" aria-label="Search events" autocomplete="off">
+      <div id="sections" class="chips" role="group" aria-label="Category"></div>
+      <div id="days" class="chips chips-scroll" role="group" aria-label="Day"></div>
+      <div class="row">
+        <select id="hood" aria-label="Neighborhood"><option value="">All neighborhoods</option></select>
+        <button id="clear" type="button" class="link-btn">Clear filters</button>
+      </div>
+      <div class="row row-count">
+        <p id="count" class="count" aria-live="polite"></p>
+        <a id="route" class="btn btn-solid" target="_blank" rel="noopener" hidden>Open my route in Google Maps</a>
+      </div>
+    </div>
+
+    <p id="loading" class="status">Loading the latest event list&hellip;</p>
+    <div id="error" class="status" hidden>
+      <p><strong>The event list could not load.</strong> Check your connection and refresh, or open the list directly:</p>
+      <p><a class="btn btn-solid" href="https://docs.google.com/spreadsheets/d/1-jsDKhBEISPl0HEYBs4Fc2fCG6cwjS1KALVcDbj1oLU/edit" target="_blank" rel="noopener">Open the Google Sheet</a></p>
+    </div>
+    <p id="empty" class="status" hidden></p>
+    <div id="list" class="list"></div>
+  </section>
+
+  <aside id="map-panel" class="map-col" aria-label="Map">
+    <div class="map-head">
+      <div>
+        <h2 id="map-title">Pick an event</h2>
+        <p id="map-sub">Tap an event to see where it is.</p>
+      </div>
+      <button id="map-close" type="button" class="map-close" aria-label="Close map">&times;</button>
+    </div>
+    <iframe id="map" title="Google map of the selected event" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+    <div id="map-links" class="map-links" hidden>
+      <a id="map-dir" class="btn btn-solid" target="_blank" rel="noopener">Directions</a>
+      <a id="map-open" class="btn" target="_blank" rel="noopener">Open in Google Maps</a>
+    </div>
+  </aside>
+</main>
+
+<footer class="foot">
+  <p>Event list curated by @ReginaGmiami. Details change often, so confirm times and tickets with each organizer before you go.</p>
+  <p><a href="https://docs.google.com/spreadsheets/d/1-jsDKhBEISPl0HEYBs4Fc2fCG6cwjS1KALVcDbj1oLU/edit" target="_blank" rel="noopener">View the source list</a></p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
