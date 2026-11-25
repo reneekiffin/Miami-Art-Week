@@ -270,24 +270,45 @@ if (typeof document !== 'undefined') (function () {
       ev.filter(function (e) { return state.picks[e.id]; }).length));
 
     const dayBox = $('days');
+    const keepDay = dayBox.scrollLeft;
     dayBox.innerHTML = '';
-    dayBox.appendChild(chip('Any day', !f.day, function () { f.day = 0; render(); }));
+    const dayTile = function (top, big, bottom, active, onClick, label) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'day' + (active ? ' is-on' : '');
+      b.setAttribute('aria-pressed', active ? 'true' : 'false');
+      b.setAttribute('aria-label', label);
+      b.innerHTML = '<span class="day-top">' + esc(top) + '</span><span class="day-num">' + esc(big) +
+        '</span><span class="day-bot">' + esc(bottom) + '</span>';
+      b.addEventListener('click', onClick);
+      return b;
+    };
+    dayBox.appendChild(dayTile('Any', 'All', 'days', !f.day, function () { f.day = 0; render(); }, 'Any day'));
     weekDays(ev).forEach(function (d) {
       const dt = toDate(d);
-      dayBox.appendChild(chip(DAY_NAMES[dt.getDay()] + ' ' + MONTH_NAMES[dt.getMonth()] + ' ' + dt.getDate(),
-        f.day === d, function () { f.day = d; render(); }));
+      const label = DAY_NAMES[dt.getDay()] + ' ' + MONTH_NAMES[dt.getMonth()] + ' ' + dt.getDate();
+      dayBox.appendChild(dayTile(DAY_NAMES[dt.getDay()], dt.getDate(), MONTH_NAMES[dt.getMonth()], f.day === d,
+        function () { f.day = f.day === d ? 0 : d; render(); }, label));
     });
 
-    const sel = $('hood');
-    if (sel.options.length <= 1) {
-      const counts = {};
-      ev.forEach(function (e) { if (e.hood) counts[e.hood] = (counts[e.hood] || 0) + 1; });
-      Object.keys(counts).sort(function (x, y) { return counts[y] - counts[x] || x.localeCompare(y); }).forEach(function (h) {
-        const o = document.createElement('option');
-        o.value = h; o.textContent = h + ' (' + counts[h] + ')';
-        sel.appendChild(o);
-      });
-    }
+    dayBox.scrollLeft = keepDay;
+
+    const hoodBox = $('hoods');
+    const keepScroll = hoodBox.scrollLeft;
+    hoodBox.innerHTML = '';
+    const counts = {};
+    ev.forEach(function (e) { if (e.hood) counts[e.hood] = (counts[e.hood] || 0) + 1; });
+    const hoodChip = function (label, value, n) {
+      const b = chip(label, f.hood === value, function () { f.hood = f.hood === value ? '' : value; render(); }, n);
+      b.className += ' chip-hood';
+      return b;
+    };
+    hoodBox.appendChild(hoodChip('Anywhere', ''));
+    Object.keys(counts).sort(function (x, y) { return counts[y] - counts[x] || x.localeCompare(y); }).forEach(function (h) {
+      hoodBox.appendChild(hoodChip(h, h, counts[h]));
+    });
+    hoodBox.scrollLeft = keepScroll;
+    $('clear').hidden = !(f.section || f.hood || f.day || f.q);
   }
 
   function card(ev) {
@@ -309,15 +330,18 @@ if (typeof document !== 'undefined') (function () {
         '<div class="card-tags">' +
           '<span class="tag">' + esc(ev.section) + '</span>' +
           (ev.free ? '<span class="tag tag-free">Free</span>' : '') +
-          (ev.starred ? '<span class="tag tag-star">★ Favorite</span>' : '') +
+          (ev.starred ? '<span class="tag tag-star">\u2605 Favorite</span>' : '') +
         '</div>' +
         '<button type="button" class="pick' + (picked ? ' is-on' : '') + '" data-act="pick" aria-pressed="' + picked +
-          '" aria-label="' + (picked ? 'Remove from my picks' : 'Add to my picks') + '">' + (picked ? '♥' : '♡') + '</button>' +
+          '" aria-label="' + (picked ? 'Remove from my picks' : 'Add to my picks') + '">' + (picked ? '\u2665' : '\u2661') + '</button>' +
       '</div>' +
       '<h3>' + esc(ev.name) + '</h3>' +
-      '<p class="when"><strong>' + esc(ev.date || 'Date to be announced') + '</strong>' + (ev.schedule ? ' <span>' + esc(ev.schedule) + '</span>' : '') + '</p>' +
-      (ev.hood || ev.address ? '<p class="where">' + (ev.hood ? '<em>' + esc(ev.hood) + '</em>' : '') +
-        (ev.address ? '<span>' + esc(ev.address) + '</span>' : '') + '</p>' : '') +
+      '<div class="meta">' +
+        '<span class="pill pill-date">' + esc(ev.date || 'Date to be announced') + '</span>' +
+        (ev.hood ? '<span class="pill pill-hood">' + esc(ev.hood) + '</span>' : '') +
+      '</div>' +
+      (ev.schedule ? '<p class="line"><span class="lbl">Hours</span>' + esc(ev.schedule) + '</p>' : '') +
+      (ev.address ? '<p class="line"><span class="lbl">Where</span>' + esc(ev.address) + '</p>' : '') +
       (ev.info ? '<p class="info">' + linkify(ev.info) + '</p>' : '') +
       (actions ? '<div class="actions">' + actions + '</div>' : '');
     return el;
@@ -388,11 +412,10 @@ if (typeof document !== 'undefined') (function () {
       const v = e.target.value.trim();
       t = setTimeout(function () { state.filter.q = v; render(); }, 120);
     });
-    $('hood').addEventListener('change', function (e) { state.filter.hood = e.target.value; render(); });
     $('map-close').addEventListener('click', function () { $('map-panel').classList.remove('is-open'); });
     $('clear').addEventListener('click', function () {
       state.filter = { section: '', hood: '', day: 0, q: '' };
-      $('q').value = ''; $('hood').value = '';
+      $('q').value = '';
       render();
     });
   }

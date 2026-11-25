@@ -9,29 +9,40 @@
 <meta property="og:description" content="Art fairs, free exhibits, parties and more. Search the list and see each one on the map.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#ffffff">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<header class="hero">
-  <p class="eyebrow">Nov 29 to Dec 6, 2026</p>
-  <h1>Miami Art <span>Week</span> 2026</h1>
-  <p class="lede">Art fairs, free exhibits, parties, wellness and dining, all in one place. Tap any event to see it on the map.</p>
+<header class="appbar">
+  <div class="appbar-in">
+    <div class="brand">
+      <h1>Miami Art Week</h1>
+      <p>Nov 29 to Dec 6, 2026</p>
+    </div>
+    <input id="q" type="search" placeholder="Search events or venues" aria-label="Search events" autocomplete="off">
+  </div>
 </header>
 
 <main class="layout">
   <section class="list-col" aria-label="Events">
     <div id="controls" class="controls" hidden>
-      <input id="q" type="search" placeholder="Search events, venues, neighborhoods" aria-label="Search events" autocomplete="off">
-      <div id="sections" class="chips" role="group" aria-label="Category"></div>
-      <div id="days" class="chips chips-scroll" role="group" aria-label="Day"></div>
-      <div class="row">
-        <select id="hood" aria-label="Neighborhood"><option value="">All neighborhoods</option></select>
-        <button id="clear" type="button" class="link-btn">Clear filters</button>
+      <div class="group">
+        <h2 class="group-label">Show</h2>
+        <div id="sections" class="chips chips-scroll" role="group" aria-label="Category"></div>
+      </div>
+      <div class="group group-date">
+        <h2 class="group-label"><span class="dot"></span>Date</h2>
+        <div id="days" class="days" role="group" aria-label="Date"></div>
+      </div>
+      <div class="group group-hood">
+        <h2 class="group-label"><span class="dot"></span>Neighborhood</h2>
+        <div id="hoods" class="chips chips-scroll" role="group" aria-label="Neighborhood"></div>
       </div>
       <div class="row row-count">
         <p id="count" class="count" aria-live="polite"></p>
+        <button id="clear" type="button" class="link-btn" hidden>Clear filters</button>
         <a id="route" class="btn btn-solid" target="_blank" rel="noopener" hidden>Open my route in Google Maps</a>
       </div>
     </div>
