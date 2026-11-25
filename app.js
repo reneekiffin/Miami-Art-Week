@@ -293,21 +293,21 @@ if (typeof document !== 'undefined') (function () {
 
     dayBox.scrollLeft = keepDay;
 
-    const hoodBox = $('hoods');
-    const keepScroll = hoodBox.scrollLeft;
-    hoodBox.innerHTML = '';
+    const sel = $('hood');
     const counts = {};
     ev.forEach(function (e) { if (e.hood) counts[e.hood] = (counts[e.hood] || 0) + 1; });
-    const hoodChip = function (label, value, n) {
-      const b = chip(label, f.hood === value, function () { f.hood = f.hood === value ? '' : value; render(); }, n);
-      b.className += ' chip-hood';
-      return b;
+    sel.innerHTML = '';
+    const addOption = function (value, label) {
+      const o = document.createElement('option');
+      o.value = value; o.textContent = label;
+      sel.appendChild(o);
     };
-    hoodBox.appendChild(hoodChip('Anywhere', ''));
-    Object.keys(counts).sort(function (x, y) { return counts[y] - counts[x] || x.localeCompare(y); }).forEach(function (h) {
-      hoodBox.appendChild(hoodChip(h, h, counts[h]));
+    addOption('', 'All neighborhoods');
+    Object.keys(counts).sort(function (x, y) { return x.localeCompare(y); }).forEach(function (h) {
+      addOption(h, h + ' (' + counts[h] + ')');
     });
-    hoodBox.scrollLeft = keepScroll;
+    sel.value = f.hood;
+    sel.parentNode.classList.toggle('is-on', !!f.hood);
     $('clear').hidden = !(f.section || f.hood || f.day || f.q);
   }
 
@@ -412,6 +412,7 @@ if (typeof document !== 'undefined') (function () {
       const v = e.target.value.trim();
       t = setTimeout(function () { state.filter.q = v; render(); }, 120);
     });
+    $('hood').addEventListener('change', function (e) { state.filter.hood = e.target.value; render(); });
     $('map-close').addEventListener('click', function () { $('map-panel').classList.remove('is-open'); });
     $('clear').addEventListener('click', function () {
       state.filter = { section: '', hood: '', day: 0, q: '' };
