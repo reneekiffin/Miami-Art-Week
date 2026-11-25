@@ -168,6 +168,15 @@ button { -webkit-tap-highlight-color: transparent; }
 .foot p { margin: 0 0 8px; }
 .foot a { color: var(--text); }
 
+/* Back to top button */
+.to-top {
+  position: fixed; right: 16px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 15;
+  width: 50px; height: 50px; border: 0; border-radius: 50%; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: var(--accent-ink); box-shadow: 0 8px 24px rgba(0, 0, 0, .55);
+}
+.to-top:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+
 /* List / Map switch */
 .seg { display: inline-flex; padding: 3px; background: var(--surface-2); border-radius: 999px; }
 .seg button {

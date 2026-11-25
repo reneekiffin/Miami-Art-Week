@@ -547,6 +547,19 @@ if (typeof document !== 'undefined' && document.getElementById('list')) (functio
     $('hood').addEventListener('change', function (e) { state.filter.hood = e.target.value; render(); });
     $('view-list').addEventListener('click', function () { setView('list'); });
     $('view-map').addEventListener('click', function () { setView('map'); });
+    const topBtn = $('to-top');
+    let ticking = false;
+    const checkScroll = function () {
+      ticking = false;
+      topBtn.hidden = (window.pageYOffset || document.documentElement.scrollTop) < 600;
+    };
+    window.addEventListener('scroll', function () {
+      if (!ticking) { ticking = true; (window.requestAnimationFrame || setTimeout)(checkScroll); }
+    }, { passive: true });
+    topBtn.addEventListener('click', function () {
+      const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: 0, behavior: calm ? 'auto' : 'smooth' });
+    });
     $('map-close').addEventListener('click', function () { $('map-panel').classList.remove('is-open'); });
     $('clear').addEventListener('click', function () {
       state.filter = { section: '', hood: '', day: 0, q: '' };
