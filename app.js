@@ -201,15 +201,57 @@ function gridFromGviz(response) {
   });
 }
 
+/* Search phrases to try, best first, when looking up an address on the map. */
+function geocodeCandidates(address) {
+  const full = String(address || '').split(';')[0].replace(/\s+/g, ' ').trim();
+  const parts = full.split(',').map(function (p) { return p.trim(); }).filter(Boolean);
+  const out = [];
+  const add = function (v) { if (v && out.indexOf(v) === -1) out.push(v); };
+  const streetAt = parts.findIndex(function (p) { return /^\d+\s+\S/.test(p) && !/^\d{5}$/.test(p); });
+  if (streetAt > -1) add(parts.slice(streetAt).join(', ').replace(/\s+(suite|ste|unit|#)\s*[\w-]+/i, ''));
+  add(full);
+  if (parts.length && streetAt !== 0) {
+    const city = /miami beach/i.test(full) ? 'Miami Beach, FL' : 'Miami, FL';
+    add(parts[0] + ', ' + city);
+    if (parts[0].indexOf('/') > -1) add(parts[0].split('/')[0].trim() + ', ' + city);
+  }
+  return out;
+}
+
+/* Loads one tab through Google's script endpoint, which works from any site. */
+function loadTab(tab, index) {
+  return new Promise(function (resolve, reject) {
+    const cb = '__mawSheet' + index;
+    const script = document.createElement('script');
+    const timer = setTimeout(function () { cleanup(); reject(new Error('timeout')); }, 20000);
+    function cleanup() { clearTimeout(timer); delete window[cb]; script.remove(); }
+    window[cb] = function (response) {
+      cleanup();
+      if (!response || response.status === 'error') reject(new Error('sheet error'));
+      else resolve(parseTab(gridFromGviz(response), tab.free));
+    };
+    script.onerror = function () { cleanup(); reject(new Error('network')); };
+    script.src = 'https://docs.google.com/spreadsheets/d/' + CONFIG.sheetId + '/gviz/tq?headers=0&sheet=' +
+      encodeURIComponent(tab.name) + '&tqx=' + encodeURIComponent('out:json;responseHandler:' + cb);
+    document.head.appendChild(script);
+  });
+}
+
+function loadEvents() {
+  return Promise.all(CONFIG.tabs.map(loadTab)).then(mergeTabs);
+}
+
 if (typeof module !== 'undefined') {
-  module.exports = { parseDates, parseTab, mergeTabs, matches, weekDays, gridFromGviz, hasPlace, mapQuery, looksFree, cleanHood };
+  module.exports = { parseDates, parseTab, mergeTabs, matches, weekDays, gridFromGviz, hasPlace, mapQuery, looksFree, cleanHood, geocodeCandidates };
 }
 
 /* ---------- Page ---------- */
 
-if (typeof document !== 'undefined') (function () {
+if (typeof document !== 'undefined' && document.getElementById('list')) (function () {
   const $ = function (id) { return document.getElementById(id); };
-  const state = { events: [], filter: { section: '', hood: '', day: 0, q: '' }, picks: {}, selected: null };
+  const state = { events: [], filter: { section: '', hood: '', day: 0, q: '' }, picks: {}, selected: null, coords: {}, view: 'list' };
+  const wide = window.matchMedia ? window.matchMedia('(min-width: 960px)') : { matches: false };
+  let big = null, cluster = null, markers = {}, lastFit = '';
 
   try { state.picks = JSON.parse(localStorage.getItem(CONFIG.picksKey) || '{}') || {}; } catch (e) { state.picks = {}; }
   function savePicks() { try { localStorage.setItem(CONFIG.picksKey, JSON.stringify(state.picks)); } catch (e) { /* private mode */ } }
@@ -222,25 +264,6 @@ if (typeof document !== 'undefined') (function () {
   function linkify(text) {
     return esc(text).replace(/https?:\/\/[^\s<]+/g, function (u) {
       return '<a href="' + u + '" target="_blank" rel="noopener">More info</a>';
-    });
-  }
-
-  /* Loads one tab through Google's script endpoint, which works from any site. */
-  function loadTab(tab, index) {
-    return new Promise(function (resolve, reject) {
-      const cb = '__mawSheet' + index;
-      const script = document.createElement('script');
-      const timer = setTimeout(function () { cleanup(); reject(new Error('timeout')); }, 20000);
-      function cleanup() { clearTimeout(timer); delete window[cb]; script.remove(); }
-      window[cb] = function (response) {
-        cleanup();
-        if (!response || response.status === 'error') reject(new Error('sheet error'));
-        else resolve(parseTab(gridFromGviz(response), tab.free));
-      };
-      script.onerror = function () { cleanup(); reject(new Error('network')); };
-      script.src = 'https://docs.google.com/spreadsheets/d/' + CONFIG.sheetId + '/gviz/tq?headers=0&sheet=' +
-        encodeURIComponent(tab.name) + '&tqx=' + encodeURIComponent('out:json;responseHandler:' + cb);
-      document.head.appendChild(script);
     });
   }
 
@@ -374,6 +397,114 @@ if (typeof document !== 'undefined') (function () {
     } else {
       route.hidden = true;
     }
+    renderPins(shown);
+  }
+
+  /* ---------- Master map: every filtered event as a pin ---------- */
+
+  function hasPins() { return !!big; }
+
+  function initBigMap() {
+    if (big || !window.L || !Object.keys(state.coords).length) return;
+    document.body.classList.add('has-pins');
+    $('bigmap-wrap').hidden = false;
+    $('view-toggle').hidden = false;
+    big = L.map('bigmap', { zoomControl: true, scrollWheelZoom: true }).setView([25.79, -80.19], 11);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19, subdomains: 'abcd',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>'
+    }).addTo(big);
+    cluster = L.markerClusterGroup({
+      showCoverageOnHover: false, maxClusterRadius: 46, spiderfyOnMaxZoom: false,
+      iconCreateFunction: function (c) {
+        const n = c.getAllChildMarkers().reduce(function (sum, m) { return sum + (m.options.count || 1); }, 0);
+        return L.divIcon({ html: '<span>' + n + '</span>', className: 'pin pin-cluster', iconSize: [42, 42] });
+      }
+    });
+    big.addLayer(cluster);
+  }
+
+  function popupHtml(group) {
+    const first = group[0];
+    const q = mapQuery(first);
+    let html = '<div class="pop">';
+    group.slice(0, 8).forEach(function (ev) {
+      html += '<div class="pop-ev"><p class="pop-name">' + esc(ev.name) + '</p>' +
+        '<p class="pop-meta"><span class="pop-date">' + esc(ev.date || 'Date to be announced') + '</span>' +
+        (ev.schedule ? ' <span>' + esc(ev.schedule) + '</span>' : '') + '</p>' +
+        (isUrl(ev.tickets) ? '<a class="pop-link" href="' + esc(ev.tickets) + '" target="_blank" rel="noopener">Tickets / RSVP</a>' : '') +
+        '</div>';
+    });
+    if (group.length > 8) html += '<p class="pop-more">Plus ' + (group.length - 8) + ' more here. Search the list to see them.</p>';
+    html += '<p class="pop-addr">' + esc(q) + '</p>' +
+      '<a class="btn btn-accent" href="https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(q) +
+      '" target="_blank" rel="noopener">Directions in Google Maps</a></div>';
+    return html;
+  }
+
+  function renderPins(shown) {
+    if (!hasPins()) return;
+    cluster.clearLayers();
+    markers = {};
+    const groups = {};
+    let pinned = 0;
+    shown.forEach(function (ev) {
+      if (!hasPlace(ev)) return;
+      const c = state.coords[mapQuery(ev)];
+      if (!c) return;
+      const k = c[0].toFixed(5) + ',' + c[1].toFixed(5);
+      (groups[k] = groups[k] || { at: c, events: [] }).events.push(ev);
+      pinned += 1;
+    });
+    Object.keys(groups).forEach(function (k) {
+      const g = groups[k];
+      const many = g.events.length > 1;
+      const m = L.marker(g.at, {
+        count: g.events.length, title: many ? g.events.length + ' events' : g.events[0].name,
+        icon: L.divIcon({ html: many ? '<span>' + g.events.length + '</span>' : '', className: 'pin' + (many ? ' pin-multi' : ''), iconSize: many ? [30, 30] : [18, 18] })
+      });
+      m.bindPopup(popupHtml(g.events), { maxWidth: 280, minWidth: 220, closeButton: true });
+      g.events.forEach(function (ev) { markers[ev.id] = m; });
+      cluster.addLayer(m);
+    });
+    $('pin-note').textContent = pinned === shown.length
+      ? pinned + (pinned === 1 ? ' event' : ' events') + ' on the map'
+      : pinned + ' of ' + shown.length + ' on the map. The rest have no confirmed address yet.';
+    fitPins(false);
+  }
+
+  function fitPins(force) {
+    if (!hasPins() || !$('bigmap').offsetWidth) return;
+    const f = state.filter;
+    const sig = [f.section, f.hood, f.day, f.q, Object.keys(markers).length].join('|');
+    if (!force && sig === lastFit) return;
+    lastFit = sig;
+    big.invalidateSize();
+    const b = cluster.getBounds();
+    if (b.isValid()) big.fitBounds(b.pad(0.12), { maxZoom: 15, animate: false });
+  }
+
+  function setView(view) {
+    state.view = view;
+    document.body.classList.toggle('view-map', view === 'map');
+    $('view-list').setAttribute('aria-pressed', view === 'list' ? 'true' : 'false');
+    $('view-map').setAttribute('aria-pressed', view === 'map' ? 'true' : 'false');
+    if (view === 'map' && hasPins()) {
+      big.invalidateSize();
+      fitPins(true);
+      const top = $('view-toggle').getBoundingClientRect().top + window.pageYOffset - 130;
+      window.scrollTo({ top: top, behavior: 'smooth' });
+    }
+  }
+
+  function showOnBigMap(ev) {
+    const m = markers[ev.id];
+    if (!m) return false;
+    state.selected = ev.id;
+    document.querySelectorAll('.card.is-selected').forEach(function (c) { c.classList.remove('is-selected'); });
+    document.querySelectorAll('.card').forEach(function (c) { if (c.dataset.id === ev.id) c.classList.add('is-selected'); });
+    cluster.zoomToShowLayer(m, function () { m.openPopup(); });
+    return true;
   }
 
   function select(ev) {
@@ -404,6 +535,7 @@ if (typeof document !== 'undefined') (function () {
         render();
         return;
       }
+      if (hasPins() && wide.matches) { showOnBigMap(ev); return; }
       if (hasPlace(ev)) select(ev);
     });
     let t;
@@ -413,6 +545,8 @@ if (typeof document !== 'undefined') (function () {
       t = setTimeout(function () { state.filter.q = v; render(); }, 120);
     });
     $('hood').addEventListener('change', function (e) { state.filter.hood = e.target.value; render(); });
+    $('view-list').addEventListener('click', function () { setView('list'); });
+    $('view-map').addEventListener('click', function () { setView('map'); });
     $('map-close').addEventListener('click', function () { $('map-panel').classList.remove('is-open'); });
     $('clear').addEventListener('click', function () {
       state.filter = { section: '', hood: '', day: 0, q: '' };
@@ -424,11 +558,14 @@ if (typeof document !== 'undefined') (function () {
   function start() {
     wire();
     $('map').src = 'https://www.google.com/maps?q=' + encodeURIComponent(CONFIG.defaultMapQuery) + '&z=12&output=embed';
-    Promise.all(CONFIG.tabs.map(loadTab)).then(function (lists) {
-      state.events = mergeTabs(lists);
+    const coordsReady = fetch('coords.json').then(function (r) { return r.ok ? r.json() : {}; }).catch(function () { return {}; });
+    Promise.all([loadEvents(), coordsReady]).then(function (res) {
+      state.events = res[0];
+      state.coords = res[1] || {};
       $('loading').hidden = true;
       if (!state.events.length) throw new Error('empty');
       $('controls').hidden = false;
+      initBigMap();
       render();
     }).catch(function () {
       $('loading').hidden = true;

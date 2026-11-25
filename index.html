@@ -12,6 +12,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <meta name="theme-color" content="#0b0b0d">
 <meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="vendor/MarkerCluster.css">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -43,6 +45,10 @@
       </div>
       <div class="row row-count">
         <p id="count" class="count" aria-live="polite"></p>
+        <div id="view-toggle" class="seg" role="group" aria-label="View" hidden>
+          <button id="view-list" type="button" aria-pressed="true">List</button>
+          <button id="view-map" type="button" aria-pressed="false">Map</button>
+        </div>
         <button id="clear" type="button" class="link-btn" hidden>Clear filters</button>
         <a id="route" class="btn btn-solid" target="_blank" rel="noopener" hidden>Open my route in Google Maps</a>
       </div>
@@ -55,6 +61,11 @@
     </div>
     <p id="empty" class="status" hidden></p>
     <div id="list" class="list"></div>
+  </section>
+
+  <section id="bigmap-wrap" class="bigmap-wrap" aria-label="Map of all events" hidden>
+    <div id="bigmap"></div>
+    <p id="pin-note" class="pin-note"></p>
   </section>
 
   <aside id="map-panel" class="map-col" aria-label="Map">
@@ -78,6 +89,8 @@
   <p><a href="https://docs.google.com/spreadsheets/d/1-jsDKhBEISPl0HEYBs4Fc2fCG6cwjS1KALVcDbj1oLU/edit" target="_blank" rel="noopener">View the source list</a></p>
 </footer>
 
+<script src="vendor/leaflet.js"></script>
+<script src="vendor/leaflet.markercluster.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

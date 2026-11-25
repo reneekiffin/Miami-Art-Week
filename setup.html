@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Map setup | Miami Art Week 2026</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  .setup { max-width: 640px; margin: 0 auto; padding: 28px 16px 60px; }
+  .setup h1 { font-size: 24px; letter-spacing: -.02em; margin: 0 0 8px; }
+  .setup p { color: #c9c9d1; margin: 0 0 14px; }
+  .bar { height: 10px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin: 18px 0 8px; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+  #out { width: 100%; height: 150px; margin: 14px 0; padding: 12px; font: 12px/1.4 ui-monospace, Menlo, monospace;
+    color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+  #missed { font-size: 13px; color: var(--muted); white-space: pre-wrap; }
+  .setup .btn { min-height: 48px; padding: 10px 22px; font-size: 15px; }
+</style>
+</head>
+<body>
+<main class="setup">
+  <h1>Map setup</h1>
+  <p>This page finds the map position of every address in the event sheet. Tap Start, keep this page open until it finishes (about 3 to 5 minutes), then tap Copy and paste the result to Claude.</p>
+  <button id="go" type="button" class="btn btn-accent">Start</button>
+  <div class="bar"><i id="fill"></i></div>
+  <p id="status">Not started.</p>
+  <textarea id="out" readonly aria-label="Result" hidden></textarea>
+  <button id="copy" type="button" class="btn btn-solid" hidden>Copy result</button>
+  <p id="missed"></p>
+</main>
+<script src="app.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var BOX = '-80.95,26.40,-79.95,25.20';
+  var wait = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+
+  function lookup(q) {
+    var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=us&bounded=1&viewbox=' +
+      BOX + '&q=' + encodeURIComponent(q);
+    return fetch(url, { headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) {
+        if (!list.length) return null;
+        return [Math.round(list[0].lat * 1e5) / 1e5, Math.round(list[0].lon * 1e5) / 1e5];
+      })
+      .catch(function () { return null; });
+  }
+
+  async function run() {
+    $('go').disabled = true;
+    $('status').textContent = 'Reading the event sheet...';
+    var events;
+    try { events = await loadEvents(); } catch (e) { $('status').textContent = 'The sheet could not load. Refresh and try again.'; $('go').disabled = false; return; }
+    var existing = {};
+    try { existing = await fetch('coords.json').then(function (r) { return r.ok ? r.json() : {}; }); } catch (e) { existing = {}; }
+    var addresses = [];
+    events.forEach(function (ev) {
+      if (!hasPlace(ev)) return;
+      var a = mapQuery(ev);
+      if (addresses.indexOf(a) === -1) addresses.push(a);
+    });
+    var result = {}, missed = [];
+    for (var i = 0; i < addresses.length; i++) {
+      var a = addresses[i];
+      $('status').textContent = 'Finding ' + (i + 1) + ' of ' + addresses.length + ': ' + a;
+      $('fill').style.width = Math.round((i / addresses.length) * 100) + '%';
+      if (existing[a]) { result[a] = existing[a]; continue; }
+      var found = null, tries = geocodeCandidates(a);
+      for (var t = 0; t < tries.length && !found; t++) {
+        found = await lookup(tries[t]);
+        await wait(1100);
+      }
+      if (found) result[a] = found; else missed.push(a);
+    }
+    $('fill').style.width = '100%';
+    $('status').textContent = 'Done. Found ' + Object.keys(result).length + ' of ' + addresses.length +
+      ' addresses. Tap Copy and paste the result to Claude.';
+    $('out').value = JSON.stringify({ coords: result, missed: missed });
+    $('out').hidden = false;
+    $('copy').hidden = false;
+    if (missed.length) $('missed').textContent = 'Not found (Claude can place these by hand):\n' + missed.join('\n');
+  }
+
+  $('go').addEventListener('click', run);
+  $('copy').addEventListener('click', function () {
+    var box = $('out');
+    box.select();
+    var done = function () { $('copy').textContent = 'Copied'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(box.value).then(done, function () { document.execCommand('copy'); done(); });
+    else { document.execCommand('copy'); done(); }
+  });
+})();
+</script>
+</body>
+</html>
